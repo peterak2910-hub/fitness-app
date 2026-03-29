@@ -1002,6 +1002,7 @@ function HomeScreen({user,profile,onOpenGroup,onOpenCamera,onViewStory,onRefresh
     const dmGroups=(data||[]).filter(g=>g.is_dm)
     if(dmGroups.length){
       const{data:members}=await supabase.from('group_members').select('group_id,user_id,profiles(id,username,avatar_url)').in('group_id',dmGroups.map(g=>g.id)).neq('user_id',user.id)
+      console.log('DM members raw:',members,'user.id:',user.id)
       const map={}
       ;(members||[]).forEach(m=>{map[m.group_id]=m.profiles})
       setDmProfiles(map)
@@ -1470,25 +1471,34 @@ function ProfileScreen({user,onSignOut,onViewStory}){
 }
 
 // ── User Profile ─────────────────────────────────────────────
-function UserProfile({userId,onBack}){
+function UserProfile({userId,currentUserId,onBack}){
   const [profile,setProfile]=useState(null),[posts,setPosts]=useState([]),[badges,setBadges]=useState([]),[streak,setStreak]=useState(null),[loading,setLoading]=useState(true)
+  const [nickname,setNickname]=useState(''),[editNickname,setEditNickname]=useState(false),[nicknameInput,setNicknameInput]=useState('')
   useEffect(()=>{
     Promise.all([supabase.from('profiles').select('*').eq('id',userId).single(),supabase.from('messages').select('id,image_url,created_at').eq('sender_id',userId).eq('msg_type','proof').order('created_at',{ascending:false}).limit(18),supabase.from('badges').select('*').eq('user_id',userId),supabase.from('streaks').select('*').eq('user_id',userId).single()])
     .then(([{data:p},{data:po},{data:b},{data:st}])=>{setProfile(p);setPosts(po||[]);setBadges(b||[]);setStreak(st);setLoading(false)})
-  },[userId])
+    if(currentUserId&&currentUserId!==userId){
+      supabase.from('contact_nicknames').select('nickname').eq('user_id',currentUserId).eq('contact_id',userId).single().then(({data})=>{if(data)setNickname(data.nickname)})
+    }
+  },[userId,currentUserId])
+  async function saveNickname(){
+    await supabase.from('contact_nicknames').upsert({user_id:currentUserId,contact_id:userId,nickname:nicknameInput.trim()})
+    setNickname(nicknameInput.trim());setEditNickname(false)
+  }
   if(loading)return<div style={{...ss.page,display:'flex',alignItems:'center',justifyContent:'center',color:'#333'}}>Loading…</div>
   if(!profile)return<div style={ss.page}><div style={{padding:20,color:'#444'}}>User not found</div></div>
   return(
     <div style={{...ss.page,paddingBottom:80}}>
       <div style={ss.topBar}>
         <button onClick={onBack} style={{background:'none',border:'none',color:'#fff',cursor:'pointer',display:'flex'}}>{Ic.back()}</button>
-        <div style={{fontWeight:900,fontSize:16,flex:1,textAlign:'center',color:Y}}>{profile.username}</div>
+        <div style={{fontWeight:900,fontSize:16,flex:1,textAlign:'center',color:Y}}>{nickname||profile.username}</div>
         <div style={{width:22}}/>
       </div>
       <div style={{padding:'20px 16px',borderBottom:'1px solid #0a0a0a',display:'flex',alignItems:'center',gap:16}}>
         <Avatar url={profile.avatar_url} name={profile.username} size={70}/>
         <div style={{flex:1}}>
-          <div style={{fontSize:20,fontWeight:900,marginBottom:4}}>{profile.username}</div>
+          <div style={{fontSize:20,fontWeight:900,marginBottom:2}}>{profile.username}</div>
+          {nickname&&<div style={{fontSize:12,color:Y,marginBottom:4}}>"{nickname}"</div>}
           {profile.main_goal&&<div style={{fontSize:13,color:'#555'}}>🎯 {profile.main_goal}</div>}
           <div style={{display:'flex',gap:16,marginTop:8}}>
             {streak?.current_streak>0&&<div style={{textAlign:'center'}}><div style={{fontSize:18,fontWeight:900,color:'#f97316'}}>{streak.current_streak}</div><div style={{fontSize:10,color:'#444'}}>Streak</div></div>}
@@ -1497,6 +1507,19 @@ function UserProfile({userId,onBack}){
           </div>
         </div>
       </div>
+      {currentUserId&&currentUserId!==userId&&<div style={{padding:'12px 16px',borderBottom:'1px solid #0a0a0a'}}>
+        {editNickname
+          ?<div style={{display:'flex',gap:8}}>
+            <input value={nicknameInput} onChange={e=>setNicknameInput(e.target.value)} placeholder="Enter nickname…" style={{flex:1,background:'#111',border:`1px solid ${Y}44`,borderRadius:10,padding:'8px 12px',color:'#fff',fontSize:13}} autoFocus/>
+            <button onClick={saveNickname} style={{...ss.ybtn,padding:'8px 14px',fontSize:13}}>Save</button>
+            <button onClick={()=>setEditNickname(false)} style={{background:'#111',border:'none',color:'#555',borderRadius:10,padding:'8px 12px',cursor:'pointer',fontSize:13}}>Cancel</button>
+          </div>
+          :<div style={{display:'flex',alignItems:'center',justifyContent:'space-between'}}>
+            <div style={{fontSize:13,color:'#555'}}>{nickname?`Nickname: `:'Add nickname'}{nickname&&<span style={{color:'#fff',fontWeight:600}}>{nickname}</span>}</div>
+            <button onClick={()=>{setNicknameInput(nickname);setEditNickname(true)}} style={{background:'none',border:`1px solid #222`,borderRadius:10,color:'#555',padding:'6px 12px',cursor:'pointer',fontSize:12}}>{nickname?'Edit':'+ Add'}</button>
+          </div>
+        }
+      </div>}
       {badges.length>0&&<div style={{padding:'12px 16px',borderBottom:'1px solid #0a0a0a',display:'flex',gap:8,flexWrap:'wrap'}}>
         {badges.map(b=>{const m=BADGE_META[b.badge_type];return m?<div key={b.id} style={{background:'#0d0d0d',borderRadius:10,padding:'7px 12px',textAlign:'center',border:`1px solid ${Y}22`}}><div style={{fontSize:18}}>{m.icon}</div><div style={{fontSize:10,color:'#444',marginTop:2}}>{m.label}</div></div>:null})}
       </div>}
@@ -1616,7 +1639,7 @@ export default function App(){
 
   if(showCam)return<CameraScreen onClose={()=>setShowCam(false)} groups={groups} user={session.user} onRefresh={refreshGroups}/>
   if(viewingStories)return<StoryViewer stories={viewingStories} user={session.user} onClose={()=>setViewingStories(null)}/>
-  if(viewingProfile)return<Slide direction="right"><UserProfile userId={viewingProfile} onBack={()=>setViewingProfile(null)}/></Slide>
+  if(viewingProfile)return<Slide direction="right"><UserProfile userId={viewingProfile} currentUserId={session?.user?.id} onBack={()=>setViewingProfile(null)}/></Slide>
   if(activeDM)return<Slide direction="right"><DMScreen conversation={activeDM.group} user={session.user} otherUser={activeDM.otherUser} onBack={()=>setActiveDM(null)} onlineUsers={onlineUsers}/></Slide>
   if(activeGroup)return<Slide direction="right"><GroupChat group={activeGroup} user={session.user} onBack={()=>setActiveGroup(null)} onViewProfile={id=>id&&setViewingProfile(id)} onOpenCamera={()=>{setActiveGroup(null);setShowCam(true)}}/></Slide>
 
