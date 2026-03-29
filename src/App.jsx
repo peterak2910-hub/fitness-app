@@ -989,14 +989,22 @@ function DMScreen({conversation,user,otherUser,onBack,onlineUsers={}}){
 
 // ── Home Screen ──────────────────────────────────────────────
 function HomeScreen({user,profile,onOpenGroup,onOpenCamera,onViewStory,onRefresh}){
-  const [groups,setGroups]=useState([]),[loading,setLoading]=useState(true),[stories,setStories]=useState([]),[pinnedIds,setPinnedIds]=useState(()=>{try{return JSON.parse(localStorage.getItem('pinnedGroups')||'[]')}catch{return[]}}),[swipeGroupId,setSwipeGroupId]=useState(null),[recap,setRecap]=useState(null),[showCreate,setShowCreate]=useState(false),[newName,setNewName]=useState(''),[newIcon,setNewIcon]=useState('🏋️'),[newColor,setNewColor]=useState(Y),[creating,setCreating]=useState(false),[refreshing,setRefreshing]=useState(false),[search,setSearch]=useState(''),[showSearch,setShowSearch]=useState(false)
+  const [groups,setGroups]=useState([]),[loading,setLoading]=useState(true),[stories,setStories]=useState([]),[pinnedIds,setPinnedIds]=useState(()=>{try{return JSON.parse(localStorage.getItem('pinnedGroups')||'[]')}catch{return[]}}),[swipeGroupId,setSwipeGroupId]=useState(null),[recap,setRecap]=useState(null),[showCreate,setShowCreate]=useState(false),[newName,setNewName]=useState(''),[newIcon,setNewIcon]=useState('🏋️'),[newColor,setNewColor]=useState(Y),[creating,setCreating]=useState(false),[refreshing,setRefreshing]=useState(false),[search,setSearch]=useState(''),[showSearch,setShowSearch]=useState(false),[dmProfiles,setDmProfiles]=useState({})
 
   const load=useCallback(async()=>{
     const{data:memberships}=await supabase.from('group_members').select('group_id').eq('user_id',user.id)
     if(!memberships?.length){setGroups([]);setLoading(false);return}
     const ids=memberships.map(m=>m.group_id)
-    const{data}=await supabase.from('groups').select('*').in('id',ids).eq('is_dm',false).order('updated_at',{ascending:false})
-    setGroups(data||[]);setLoading(false)
+    const{data}=await supabase.from('groups').select('*').in('id',ids).order('updated_at',{ascending:false})
+    setGroups(data||[])
+    const dmGroups=(data||[]).filter(g=>g.is_dm)
+    if(dmGroups.length){
+      const{data:members}=await supabase.from('group_members').select('group_id,user_id,profiles(id,username,avatar_url)').in('group_id',dmGroups.map(g=>g.id)).neq('user_id',user.id)
+      const map={}
+      ;(members||[]).forEach(m=>{map[m.group_id]=m.profiles})
+      setDmProfiles(map)
+    }
+    setLoading(false)
   },[user.id])
 
   const loadStories=useCallback(async()=>{
@@ -1107,6 +1115,8 @@ function HomeScreen({user,profile,onOpenGroup,onOpenCamera,onViewStory,onRefresh
         ?<div style={{textAlign:'center',padding:70,color:'#333'}}><div style={{fontSize:40,marginBottom:10}}>👻</div><div style={{fontSize:14,fontWeight:600}}>{search?'No groups found':'No groups yet'}</div></div>
         :filtered.map(g=>{
           const ac=groupAccent(g),isPinned=pinnedIds.includes(g.id),isSwipe=swipeGroupId===g.id
+          const dmOther=g.is_dm?dmProfiles[g.id]:null
+          const displayName=dmOther?dmOther.username:g.name
           return(
             <div key={g.id} style={{position:'relative',overflow:'hidden'}}>
               {isSwipe&&<div style={{position:'absolute',right:0,top:0,bottom:0,display:'flex',alignItems:'center',zIndex:1}}>
@@ -1117,12 +1127,12 @@ function HomeScreen({user,profile,onOpenGroup,onOpenCamera,onViewStory,onRefresh
                 onTouchStart={e=>{e.currentTarget._startX=e.touches[0].clientX}}
                 onTouchEnd={e=>{const dx=e.changedTouches[0].clientX-e.currentTarget._startX;if(dx<-40)setSwipeGroupId(g.id);else if(dx>20)setSwipeGroupId(null)}}
               >
-                <div style={{width:52,height:52,borderRadius:'50%',background:ac,display:'flex',alignItems:'center',justifyContent:'center',fontSize:24,flexShrink:0,position:'relative',color:ac===Y?'#000':'#fff'}}>
-                  {g.icon||'💬'}
-                  {isPinned&&<div style={{position:'absolute',top:-2,right:-2,fontSize:11}}>📌</div>}
-                </div>
+                {dmOther
+                  ?<div style={{width:52,height:52,borderRadius:'50%',flexShrink:0,position:'relative'}}><Avatar url={dmOther.avatar_url} name={dmOther.username} size={52}/>{isPinned&&<div style={{position:'absolute',top:-2,right:-2,fontSize:11}}>📌</div>}</div>
+                  :<div style={{width:52,height:52,borderRadius:'50%',background:ac,display:'flex',alignItems:'center',justifyContent:'center',fontSize:24,flexShrink:0,position:'relative',color:ac===Y?'#000':'#fff'}}>{g.icon||'💬'}{isPinned&&<div style={{position:'absolute',top:-2,right:-2,fontSize:11}}>📌</div>}</div>
+                }
                 <div style={{flex:1,minWidth:0}}>
-                  <div style={{fontWeight:700,fontSize:15,marginBottom:2}}>{g.name}</div>
+                  <div style={{fontWeight:700,fontSize:15,marginBottom:2}}>{displayName}</div>
                   <div style={{fontSize:12,color:'#555',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{g.last_message||'No messages yet'}</div>
                 </div>
                 <div style={{fontSize:11,color:'#333',flexShrink:0}}>{g.updated_at?ago(g.updated_at):''}</div>
