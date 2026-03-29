@@ -1152,12 +1152,28 @@ function PeopleScreen({user,onOpenDM,onRequestCountChange,onlineUsers={}}){
   const [tab,setTab]=useState('friends'),[friends,setFriends]=useState([]),[requests,setRequests]=useState([]),[search,setSearch]=useState(''),[results,setResults]=useState([]),[searching,setSearching]=useState(false),[loading,setLoading]=useState(true)
 
   const loadFriends=useCallback(async()=>{
-    const{data,error}=await supabase.from('friendships').select('*,requester:profiles!friendships_requester_id_fkey(id,username,avatar_url),addressee:profiles!friendships_addressee_id_fkey(id,username,avatar_url)').or(`requester_id.eq.${user.id},addressee_id.eq.${user.id}`).eq('status','accepted')
-    console.log('friends data:',data,'user id:',user.id)
-    setFriends(data||[])
-    const{data:reqs,error:reqsErr}=await supabase.from('friendships').select('*,requester:profiles!friendships_requester_id_fkey(id,username,avatar_url)').eq('addressee_id',user.id).eq('status','pending')
-    console.log('requests data:',reqs)
-    setRequests(reqs||[]);onRequestCountChange?.(reqs?.length||0);setLoading(false)
+    const{data,error}=await supabase.from('friendships').select('*').or(`requester_id.eq.${user.id},addressee_id.eq.${user.id}`).eq('status','accepted')
+    console.log('friendships raw:',data,error)
+    if(data?.length){
+      const otherIds=data.map(f=>f.requester_id===user.id?f.addressee_id:f.requester_id)
+      const{data:profiles}=await supabase.from('profiles').select('id,username,avatar_url').in('id',otherIds)
+      const profileMap={}
+      ;(profiles||[]).forEach(p=>{profileMap[p.id]=p})
+      const enriched=data.map(f=>({...f,requester:profileMap[f.requester_id],addressee:profileMap[f.addressee_id]}))
+      setFriends(enriched)
+    }else setFriends([])
+    const{data:reqs,error:reqErr}=await supabase.from('friendships').select('*').eq('addressee_id',user.id).eq('status','pending')
+    console.log('requests raw:',reqs,reqErr)
+    if(reqs?.length){
+      const requesterIds=reqs.map(r=>r.requester_id)
+      const{data:profiles}=await supabase.from('profiles').select('id,username,avatar_url').in('id',requesterIds)
+      const profileMap={}
+      ;(profiles||[]).forEach(p=>{profileMap[p.id]=p})
+      const enriched=reqs.map(r=>({...r,requester:profileMap[r.requester_id]}))
+      setRequests(enriched)
+    }else setRequests([])
+    onRequestCountChange?.(reqs?.length||0)
+    setLoading(false)
   },[user.id])
 
   useEffect(()=>{loadFriends()},[loadFriends])
