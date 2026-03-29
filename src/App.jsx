@@ -529,7 +529,7 @@ function GroupChat({group,user,onBack,onViewProfile,onOpenCamera}){
   const inviteLink=`${window.location.origin}?joingroup=${group.id}`
 
   const loadMessages=useCallback(async()=>{
-    const{data,error}=await supabase.from('messages').select('*,profiles(id,username,avatar_url)').eq('group_id',group.id).order('created_at',{ascending:true}).limit(100)
+    const{data,error}=await supabase.from('messages').select('*,sender:profiles!messages_sender_id_fkey(id,username,avatar_url)').eq('group_id',group.id).order('created_at',{ascending:true}).limit(100)
     console.log('msgs loaded:',data?.length,'error:',error?.message)
     if(error){console.error('loadMessages error:',error);return}
     // Filter out expired proof photos
@@ -696,7 +696,7 @@ function GroupChat({group,user,onBack,onViewProfile,onOpenCamera}){
 
     if(isProof)return(
       <div key={m.id} style={{marginBottom:8}}>
-        {!sameUser&&!isMe&&<div style={{fontSize:11,color:'#555',marginBottom:4,marginLeft:4,fontWeight:600}}>{m.profiles?.username}</div>}
+        {!sameUser&&!isMe&&<div style={{fontSize:11,color:'#555',marginBottom:4,marginLeft:4,fontWeight:600}}>{m.sender?.username}</div>}
         <div onClick={()=>setViewingProof(m)} style={{cursor:'pointer',borderRadius:18,overflow:'hidden',position:'relative',maxWidth:280,marginLeft:isMe?'auto':0}}>
           <img src={m.image_url} style={{width:'100%',display:'block',borderRadius:18}} alt="workout proof"/>
           <div style={{position:'absolute',inset:0,background:'linear-gradient(to bottom,transparent 60%,rgba(0,0,0,.6))',borderRadius:18}}/>
@@ -717,7 +717,7 @@ function GroupChat({group,user,onBack,onViewProfile,onOpenCamera}){
         onMouseDown={e=>{e.currentTarget._holdTimer=setTimeout(()=>{vibe(20);setShowReactions(m.id)},400)}}
         onMouseUp={e=>clearTimeout(e.currentTarget._holdTimer)}
       >
-        {!isMe&&!sameUser&&<div style={{fontSize:11,color:'#555',marginBottom:3,marginLeft:4,fontWeight:600}}>{m.profiles?.username}</div>}
+        {!isMe&&!sameUser&&<div style={{fontSize:11,color:'#555',marginBottom:3,marginLeft:4,fontWeight:600}}>{m.sender?.username}</div>}
         {m.reply_to_id&&m.reply_preview&&<div style={{background:'rgba(255,255,255,.06)',borderLeft:`3px solid ${accent}`,borderRadius:8,padding:'4px 10px',marginBottom:3,fontSize:11,color:'#555',maxWidth:220}}>↩ {m.reply_preview}</div>}
         <div style={{position:'relative',maxWidth:'78%'}}>
           {isChatPhoto?(
@@ -819,8 +819,8 @@ function GroupChat({group,user,onBack,onViewProfile,onOpenCamera}){
             <div style={{fontSize:11,fontWeight:700,marginBottom:6}}>👥 Members ({members.length})</div>
             {members.map(m=>(
               <div key={m.user_id} style={{display:'flex',alignItems:'center',gap:8,padding:'5px 0'}}>
-                <Avatar url={m.profiles?.avatar_url} name={m.profiles?.username} size={26}/>
-                <div style={{flex:1,fontSize:12,fontWeight:600}}>{m.profiles?.username}{m.user_id===group.created_by?' 👑':''}</div>
+                <Avatar url={m.sender?.avatar_url} name={m.sender?.username} size={26}/>
+                <div style={{flex:1,fontSize:12,fontWeight:600}}>{m.sender?.username}{m.user_id===group.created_by?' 👑':''}</div>
                 {m.user_id!==user.id&&<button onClick={()=>kickMember(m.user_id)} style={{background:'none',border:'1px solid #222',borderRadius:6,color:T.danger,padding:'2px 7px',fontSize:11,cursor:'pointer'}}>Kick</button>}
               </div>
             ))}
@@ -844,8 +844,8 @@ function GroupChat({group,user,onBack,onViewProfile,onOpenCamera}){
             <div style={{display:'flex',gap:6,flexWrap:'wrap'}}>
               {shameWall.map(m=>(
                 <div key={m.user_id} style={{display:'flex',alignItems:'center',gap:5,background:'#111',borderRadius:20,padding:'4px 10px'}}>
-                  <Avatar url={m.profiles?.avatar_url} name={m.profiles?.username} size={20}/>
-                  <span style={{fontSize:12}}>{m.profiles?.username}</span>
+                  <Avatar url={m.sender?.avatar_url} name={m.sender?.username} size={20}/>
+                  <span style={{fontSize:12}}>{m.sender?.username}</span>
                   <button onClick={()=>{supabase.from('notifications').insert({user_id:m.user_id,type:'hype',message:'Someone sent you a hype! 💪'});vibe();setToast('Hype sent!')}} style={{background:'none',border:'none',color:Y,cursor:'pointer',fontSize:12}}>📣</button>
                 </div>
               ))}
@@ -856,8 +856,8 @@ function GroupChat({group,user,onBack,onViewProfile,onOpenCamera}){
             <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
               {leaderboard.slice(0,5).map(m=>(
                 <button key={m.user_id} onClick={()=>voteMVP(m.user_id)} disabled={!!myVote} style={{display:'flex',alignItems:'center',gap:6,background:myVote===m.user_id?`${Y}22`:'#111',border:`1px solid ${myVote===m.user_id?Y:'#1a1a1a'}`,borderRadius:20,padding:'5px 10px',cursor:'pointer'}}>
-                  <Avatar url={m.profiles?.avatar_url} name={m.profiles?.username} size={20}/>
-                  <span style={{fontSize:12,color:'#fff'}}>{m.profiles?.username}</span>
+                  <Avatar url={m.sender?.avatar_url} name={m.sender?.username} size={20}/>
+                  <span style={{fontSize:12,color:'#fff'}}>{m.sender?.username}</span>
                   {mvpVotes[m.user_id]>0&&<span style={{fontSize:11,color:Y}}>{mvpVotes[m.user_id]}</span>}
                 </button>
               ))}
@@ -903,8 +903,8 @@ function GroupChat({group,user,onBack,onViewProfile,onOpenCamera}){
           {leaderboard.map((m,i)=>(
             <div key={m.user_id} style={{display:'flex',alignItems:'center',gap:10,padding:'10px 0',borderBottom:'1px solid #111',cursor:'pointer'}} onClick={()=>{setShowLeaderboard(false);onViewProfile?.(m.user_id)}}>
               <div style={{fontSize:16,fontWeight:900,color:i===0?Y:i===1?'#888':i===2?'#cd7f32':'#333',width:24}}>{i===0?'🥇':i===1?'🥈':i===2?'🥉':`#${i+1}`}</div>
-              <Avatar url={m.profiles?.avatar_url} name={m.profiles?.username} size={36}/>
-              <div style={{flex:1}}><div style={{fontWeight:700,fontSize:14}}>{m.profiles?.username}</div><div style={{fontSize:11,color:'#444'}}>Best: {m.streaks?.longest_streak||0}d</div></div>
+              <Avatar url={m.sender?.avatar_url} name={m.sender?.username} size={36}/>
+              <div style={{flex:1}}><div style={{fontWeight:700,fontSize:14}}>{m.sender?.username}</div><div style={{fontSize:11,color:'#444'}}>Best: {m.streaks?.longest_streak||0}d</div></div>
               {(m.streaks?.current_streak||0)>0&&<div style={{background:'linear-gradient(135deg,#f97316,#ef4444)',color:'#fff',borderRadius:8,fontSize:12,fontWeight:800,padding:'3px 8px'}}>🔥{m.streaks.current_streak}</div>}
             </div>
           ))}
@@ -933,7 +933,7 @@ function DMScreen({conversation,user,otherUser,onBack,onlineUsers={}}){
   const isOnline=onlineUsers[otherUser?.id]
 
   const loadMessages=useCallback(async()=>{
-    const{data}=await supabase.from('messages').select('*,profiles(username,avatar_url)').eq('group_id',conversation.id).order('created_at',{ascending:true})
+    const{data}=await supabase.from('messages').select('*,sender:profiles!messages_sender_id_fkey(id,username,avatar_url)').eq('group_id',conversation.id).order('created_at',{ascending:true})
     setMessages(data||[])
     await supabase.from('messages').update({status:'opened',read_at:new Date().toISOString()}).eq('group_id',conversation.id).neq('sender_id',user.id).is('read_at',null)
     setTimeout(()=>bottomRef.current?.scrollIntoView({behavior:'smooth'}),80)
