@@ -421,7 +421,7 @@ function ProofViewer({message,user,groupId,onClose,onScreenshot}){
   const [comments,setComments]=useState([]),[text,setText]=useState(''),[sending,setSending]=useState(false)
 
   useEffect(()=>{
-    supabase.from('messages').select('*,profiles(username,avatar_url)').eq('reply_to_id',message.id).eq('group_id',groupId).order('created_at',{ascending:true}).then(({data})=>setComments(data||[]))
+    supabase.from('messages').select('*,sender:profiles!messages_sender_id_fkey(id,username,avatar_url)').eq('reply_to_id',message.id).eq('group_id',groupId).order('created_at',{ascending:true}).then(({data})=>setComments(data||[]))
   },[message.id])
 
   // Detect screenshot via page visibility + user gesture
@@ -439,7 +439,7 @@ function ProofViewer({message,user,groupId,onClose,onScreenshot}){
   async function sendComment(){
     if(!text.trim())return;setSending(true)
     await supabase.from('messages').insert({group_id:groupId,sender_id:user.id,content:text.trim(),msg_type:'text',reply_to_id:message.id})
-    setComments(c=>[...c,{id:Date.now(),content:text.trim(),sender_id:user.id,profiles:{username:'You'},created_at:new Date().toISOString()}])
+    setComments(c=>[...c,{id:Date.now(),content:text.trim(),sender_id:user.id,sender:{username:'You'},created_at:new Date().toISOString()}])
     setText('');setSending(false)
   }
 
@@ -468,9 +468,9 @@ function ProofViewer({message,user,groupId,onClose,onScreenshot}){
       <div style={{background:'rgba(0,0,0,.95)',maxHeight:'40vh',overflowY:'auto',padding:'8px 14px 0'}}>
         {comments.map(c=>(
           <div key={c.id} style={{display:'flex',gap:8,padding:'6px 0',borderBottom:'1px solid #0d0d0d',alignItems:'flex-start'}}>
-            <Avatar url={c.profiles?.avatar_url} name={c.profiles?.username} size={26}/>
+            <Avatar url={c.sender?.avatar_url} name={c.sender?.username} size={26}/>
             <div>
-              <span style={{fontSize:12,fontWeight:700,color:Y}}>{c.profiles?.username} </span>
+              <span style={{fontSize:12,fontWeight:700,color:Y}}>{c.sender?.username} </span>
               <span style={{fontSize:13,color:'#fff'}}>{c.content}</span>
               <div style={{fontSize:10,color:'#444',marginTop:2}}>{ago(c.created_at)}</div>
             </div>
@@ -518,7 +518,7 @@ function GroupChat({group,user,onBack,onViewProfile,onOpenCamera}){
   const inviteLink=`${window.location.origin}?joingroup=${group.id}`
 
   const loadMessages=useCallback(async()=>{
-    const{data,error}=await supabase.from('messages').select('*,sender:profiles!messages_sender_id_fkey(id,username,avatar_url)').eq('group_id',group.id).order('created_at',{ascending:true}).limit(100)
+    const{data,error}=await supabase.from('messages').select('*,sender:profiles!messages_sender_id_fkey(id,username,avatar_url)').eq('group_id',group.id).is('reply_to_id',null).order('created_at',{ascending:true}).limit(100)
     console.log('msgs loaded:',data?.length,'error:',error?.message)
     if(error){console.error('loadMessages error:',error);return}
     // Filter out expired proof photos
