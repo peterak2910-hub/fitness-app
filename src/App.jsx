@@ -418,20 +418,10 @@ function StoryViewer({stories,user,onClose}){
 // ── Proof Photo Viewer ───────────────────────────────────────
 function ProofViewer({message,user,groupId,onClose,onScreenshot}){
   console.log('ProofViewer message:',message)
-  const [comments,setComments]=useState([]),[text,setText]=useState(''),[sending,setSending]=useState(false),[views,setViews]=useState([])
-  const isOwn=message.sender_id===user.id
+  const [comments,setComments]=useState([]),[text,setText]=useState(''),[sending,setSending]=useState(false)
 
   useEffect(()=>{
-    // Mark as viewed
-    supabase.from('message_views').upsert({message_id:message.id,viewer_id:user.id,viewed_at:new Date().toISOString()}).catch(()=>{})
-    // Load comments
     supabase.from('messages').select('*,profiles(username,avatar_url)').eq('reply_to_id',message.id).eq('group_id',groupId).order('created_at',{ascending:true}).then(({data})=>setComments(data||[]))
-    // Load views if own
-    if(isOwn)supabase.from('message_views').select('*,profiles(username,avatar_url)').eq('message_id',message.id).then(({data})=>setViews(data||[]))
-    // Screenshot detection
-    const handleVisibility=()=>{if(document.hidden)return;/* can't detect screenshot directly but can detect app switch */}
-    document.addEventListener('visibilitychange',handleVisibility)
-    return()=>document.removeEventListener('visibilitychange',handleVisibility)
   },[message.id])
 
   // Detect screenshot via page visibility + user gesture
@@ -473,14 +463,6 @@ function ProofViewer({message,user,groupId,onClose,onScreenshot}){
         </div>
         <button onClick={onClose} style={{position:'absolute',top:16,left:16,background:'rgba(0,0,0,.55)',border:'none',color:'#fff',borderRadius:'50%',width:36,height:36,cursor:'pointer',fontSize:18,display:'flex',alignItems:'center',justifyContent:'center'}}>✕</button>
         {timeLeft()&&<div style={{position:'absolute',top:16,right:16,background:'rgba(0,0,0,.55)',borderRadius:20,padding:'6px 12px',fontSize:12,color:Y,fontWeight:700}}>⏳ {timeLeft()}</div>}
-        {isOwn&&views.length>0&&(
-          <div style={{position:'absolute',bottom:120,left:16,right:16,background:'rgba(0,0,0,.7)',borderRadius:14,padding:'10px 14px',backdropFilter:'blur(8px)'}}>
-            <div style={{fontSize:11,color:'#888',marginBottom:6}}>👁 Viewed by {views.length}</div>
-            <div style={{display:'flex',gap:-4}}>
-              {views.slice(0,5).map((v,i)=><div key={i} style={{marginLeft:i>0?-8:0}}><Avatar url={v.profiles?.avatar_url} name={v.profiles?.username} size={24}/></div>)}
-            </div>
-          </div>
-        )}
       </div>
       {/* Comments */}
       <div style={{background:'rgba(0,0,0,.95)',maxHeight:'40vh',overflowY:'auto',padding:'8px 14px 0'}}>
