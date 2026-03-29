@@ -933,16 +933,16 @@ function DMScreen({conversation,user,otherUser,onBack,onlineUsers={}}){
   const isOnline=onlineUsers[otherUser?.id]
 
   const loadMessages=useCallback(async()=>{
-    const{data}=await supabase.from('messages').select('*,profiles(username,avatar_url)').eq('conversation_id',conversation.id).order('created_at',{ascending:true})
+    const{data}=await supabase.from('messages').select('*,profiles(username,avatar_url)').eq('group_id',conversation.id).order('created_at',{ascending:true})
     setMessages(data||[])
-    await supabase.from('messages').update({status:'opened',read_at:new Date().toISOString()}).eq('conversation_id',conversation.id).neq('sender_id',user.id).is('read_at',null)
+    await supabase.from('messages').update({status:'opened',read_at:new Date().toISOString()}).eq('group_id',conversation.id).neq('sender_id',user.id).is('read_at',null)
     setTimeout(()=>bottomRef.current?.scrollIntoView({behavior:'smooth'}),80)
   },[conversation.id,user.id])
 
   useEffect(()=>{
     loadMessages()
     const ch=supabase.channel(`dm_${conversation.id}`)
-      .on('postgres_changes',{event:'INSERT',schema:'public',table:'messages',filter:`conversation_id=eq.${conversation.id}`},()=>loadMessages())
+      .on('postgres_changes',{event:'INSERT',schema:'public',table:'messages',filter:`group_id=eq.${conversation.id}`},()=>loadMessages())
       .subscribe()
     return()=>supabase.removeChannel(ch)
   },[loadMessages])
@@ -951,7 +951,7 @@ function DMScreen({conversation,user,otherUser,onBack,onlineUsers={}}){
     if(!text.trim()&&!file)return;setSending(true)
     let image_url=null
     if(file){const ext=(file.name||'jpg').split('.').pop()||'jpg',path=`dms/${user.id}/${Date.now()}.${ext}`;const{error:e}=await supabase.storage.from('posts').upload(path,file);if(!e){const{data}=supabase.storage.from('posts').getPublicUrl(path);image_url=data.publicUrl}}
-    await supabase.from('messages').insert({conversation_id:conversation.id,sender_id:user.id,content:text.trim()||null,image_url,status:'sent',...(replyTo&&{reply_to_id:replyTo.id,reply_preview:replyTo.content||(replyTo.image_url?'📷 Photo':'')})})
+    await supabase.from('messages').insert({group_id:conversation.id,sender_id:user.id,content:text.trim()||null,image_url,status:'sent',...(replyTo&&{reply_to_id:replyTo.id,reply_preview:replyTo.content||(replyTo.image_url?'📷 Photo':'')})})
     setText('');setFile(null);setPreview(null);setReplyTo(null);setSending(false)
   }
 
