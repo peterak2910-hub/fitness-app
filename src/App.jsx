@@ -417,6 +417,7 @@ function StoryViewer({stories,user,onClose}){
 
 // ── Proof Photo Viewer ───────────────────────────────────────
 function ProofViewer({message,user,groupId,onClose,onScreenshot}){
+  console.log('ProofViewer message:',message)
   const [comments,setComments]=useState([]),[text,setText]=useState(''),[sending,setSending]=useState(false),[views,setViews]=useState([])
   const isOwn=message.sender_id===user.id
 
@@ -464,7 +465,7 @@ function ProofViewer({message,user,groupId,onClose,onScreenshot}){
     <div style={{position:'fixed',inset:0,background:'#000',zIndex:150,display:'flex',flexDirection:'column'}}>
       <div style={{flex:1,position:'relative',overflow:'hidden',display:'flex',alignItems:'center',justifyContent:'center'}}>
         {message.image_url
-          ?<img src={message.image_url} style={{width:'100%',height:'100%',objectFit:'cover'}} alt="" onError={e=>{e.target.style.display='none';e.target.nextSibling.style.display='flex'}}/>
+          ?<img src={message.image_url} style={{width:'100%',height:'100%',objectFit:'cover'}} alt="" onError={e=>{console.log('img error',e);e.target.style.display='none';e.target.nextSibling.style.display='flex'}}/>
           :null}
         <div style={{display:message.image_url?'none':'flex',flexDirection:'column',alignItems:'center',gap:12,color:'#555',fontSize:14}}>
           <div style={{fontSize:40}}>📷</div>
