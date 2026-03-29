@@ -997,8 +997,16 @@ function HomeScreen({user,profile,onOpenGroup,onOpenCamera,onViewStory,onRefresh
     const{data:memberships}=await supabase.from('group_members').select('group_id').eq('user_id',user.id)
     if(!memberships?.length){setGroups([]);setLoading(false);return}
     const ids=memberships.map(m=>m.group_id)
-    const{data}=await supabase.from('groups').select('*').in('id',ids).eq('is_dm',false).order('updated_at',{ascending:false})
-    setGroups(data||[]);setLoading(false)
+    const{data}=await supabase.from('groups').select('*').in('id',ids).order('updated_at',{ascending:false})
+    setGroups(data||[])
+    const dmGroups=(data||[]).filter(g=>g.is_dm)
+    if(dmGroups.length){
+      const{data:members}=await supabase.from('group_members').select('group_id,user_id,profiles(id,username,avatar_url)').in('group_id',dmGroups.map(g=>g.id)).neq('user_id',user.id)
+      const map={}
+      ;(members||[]).forEach(m=>{map[m.group_id]=m.profiles})
+      setDmProfiles(map)
+    }
+    setLoading(false)
   },[user.id])
 
   const loadStories=useCallback(async()=>{
