@@ -423,7 +423,7 @@ function ProofViewer({message,user,groupId,onClose,onScreenshot}){
 
   useEffect(()=>{
     // Mark as viewed
-    supabase.from('message_views').upsert({message_id:message.id,viewer_id:user.id,viewed_at:new Date().toISOString()}).catch(()=>{})
+    try{await supabase.from('message_views').upsert({message_id:message.id,viewer_id:user.id,viewed_at:new Date().toISOString()})}catch{}
     // Load comments
     supabase.from('messages').select('*,profiles(username,avatar_url)').eq('reply_to_id',message.id).eq('group_id',groupId).order('created_at',{ascending:true}).then(({data})=>setComments(data||[]))
     // Load views if own
