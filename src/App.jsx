@@ -462,8 +462,14 @@ function ProofViewer({message,user,groupId,onClose,onScreenshot}){
 
   return(
     <div style={{position:'fixed',inset:0,background:'#000',zIndex:150,display:'flex',flexDirection:'column'}}>
-      <div style={{flex:1,position:'relative',overflow:'hidden'}}>
-        <img src={message.image_url} style={{width:'100%',height:'100%',objectFit:'cover'}} alt=""/>
+      <div style={{flex:1,position:'relative',overflow:'hidden',display:'flex',alignItems:'center',justifyContent:'center'}}>
+        {message.image_url
+          ?<img src={message.image_url} style={{width:'100%',height:'100%',objectFit:'cover'}} alt="" onError={e=>{e.target.style.display='none';e.target.nextSibling.style.display='flex'}}/>
+          :null}
+        <div style={{display:message.image_url?'none':'flex',flexDirection:'column',alignItems:'center',gap:12,color:'#555',fontSize:14}}>
+          <div style={{fontSize:40}}>📷</div>
+          <div>Photo unavailable</div>
+        </div>
         <button onClick={onClose} style={{position:'absolute',top:16,left:16,background:'rgba(0,0,0,.55)',border:'none',color:'#fff',borderRadius:'50%',width:36,height:36,cursor:'pointer',fontSize:18,display:'flex',alignItems:'center',justifyContent:'center'}}>✕</button>
         {timeLeft()&&<div style={{position:'absolute',top:16,right:16,background:'rgba(0,0,0,.55)',borderRadius:20,padding:'6px 12px',fontSize:12,color:Y,fontWeight:700}}>⏳ {timeLeft()}</div>}
         {isOwn&&views.length>0&&(
