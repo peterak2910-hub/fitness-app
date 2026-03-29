@@ -1152,9 +1152,11 @@ function PeopleScreen({user,onOpenDM,onRequestCountChange,onlineUsers={}}){
   const [tab,setTab]=useState('friends'),[friends,setFriends]=useState([]),[requests,setRequests]=useState([]),[search,setSearch]=useState(''),[results,setResults]=useState([]),[searching,setSearching]=useState(false),[loading,setLoading]=useState(true)
 
   const loadFriends=useCallback(async()=>{
-    const{data}=await supabase.from('friendships').select('*,requester:profiles!friendships_requester_id_fkey(id,username,avatar_url),addressee:profiles!friendships_addressee_id_fkey(id,username,avatar_url)').or(`requester_id.eq.${user.id},addressee_id.eq.${user.id}`).eq('status','accepted')
+    const{data,error}=await supabase.from('friendships').select('*,requester:profiles!friendships_requester_id_fkey(id,username,avatar_url),addressee:profiles!friendships_addressee_id_fkey(id,username,avatar_url)').or(`requester_id.eq.${user.id},addressee_id.eq.${user.id}`).eq('status','accepted')
+    console.log('[loadFriends] accepted friendships:',data,'error:',error)
     setFriends(data||[])
-    const{data:reqs}=await supabase.from('friendships').select('*,requester:profiles!friendships_requester_id_fkey(id,username,avatar_url)').eq('addressee_id',user.id).eq('status','pending')
+    const{data:reqs,error:reqsErr}=await supabase.from('friendships').select('*,requester:profiles!friendships_requester_id_fkey(id,username,avatar_url)').eq('addressee_id',user.id).eq('status','pending')
+    console.log('[loadFriends] pending requests:',reqs,'error:',reqsErr)
     setRequests(reqs||[]);onRequestCountChange?.(reqs?.length||0);setLoading(false)
   },[user.id])
 
@@ -1169,12 +1171,18 @@ function PeopleScreen({user,onOpenDM,onRequestCountChange,onlineUsers={}}){
   }
 
   async function acceptRequest(friendshipId,requesterId){
-    await supabase.from('friendships').update({status:'accepted'}).eq('id',friendshipId)
+    const{error:updErr}=await supabase.from('friendships').update({status:'accepted'}).eq('id',friendshipId)
+    console.log('[acceptRequest] friendship updated, error:',updErr)
     const name=`dm_${[user.id,requesterId].sort().join('_')}`
-    const{data:existing}=await supabase.from('groups').select('id').eq('name',name).single()
+    const{data:existing,error:existErr}=await supabase.from('groups').select('id').eq('name',name).single()
+    console.log('[acceptRequest] existing DM group:',existing,'error:',existErr)
     if(!existing){
-      const{data:grp}=await supabase.from('groups').insert({name,created_by:user.id,is_dm:true,updated_at:new Date().toISOString(),last_message:''}).select().single()
-      if(grp)await supabase.from('group_members').insert([{group_id:grp.id,user_id:user.id},{group_id:grp.id,user_id:requesterId}])
+      const{data:grp,error:grpErr}=await supabase.from('groups').insert({name,created_by:user.id,is_dm:true,updated_at:new Date().toISOString(),last_message:''}).select().single()
+      console.log('[acceptRequest] created group:',grp,'error:',grpErr)
+      if(grp){
+        const{error:memErr}=await supabase.from('group_members').insert([{group_id:grp.id,user_id:user.id},{group_id:grp.id,user_id:requesterId}])
+        console.log('[acceptRequest] inserted group_members, error:',memErr)
+      }
     }
     vibe();loadFriends()
   }
