@@ -1153,10 +1153,10 @@ function PeopleScreen({user,onOpenDM,onRequestCountChange,onlineUsers={}}){
 
   const loadFriends=useCallback(async()=>{
     const{data,error}=await supabase.from('friendships').select('*,requester:profiles!friendships_requester_id_fkey(id,username,avatar_url),addressee:profiles!friendships_addressee_id_fkey(id,username,avatar_url)').or(`requester_id.eq.${user.id},addressee_id.eq.${user.id}`).eq('status','accepted')
-    console.log('[loadFriends] accepted friendships:',data,'error:',error)
+    console.log('friends data:',data,'user id:',user.id)
     setFriends(data||[])
     const{data:reqs,error:reqsErr}=await supabase.from('friendships').select('*,requester:profiles!friendships_requester_id_fkey(id,username,avatar_url)').eq('addressee_id',user.id).eq('status','pending')
-    console.log('[loadFriends] pending requests:',reqs,'error:',reqsErr)
+    console.log('requests data:',reqs)
     setRequests(reqs||[]);onRequestCountChange?.(reqs?.length||0);setLoading(false)
   },[user.id])
 
