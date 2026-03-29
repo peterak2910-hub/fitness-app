@@ -701,10 +701,9 @@ function GroupChat({group,user,onBack,onViewProfile,onOpenCamera}){
 
     return(
       <div key={m.id} style={{display:'flex',flexDirection:'column',alignItems:isMe?'flex-end':'flex-start',marginBottom:hasRxns?16:3,paddingLeft:isMe?40:0,paddingRight:isMe?0:40}}
-        onTouchStart={e=>{e.currentTarget._holdTimer=setTimeout(()=>{vibe(20);setShowReactions(m.id)},400);setSwipeStartX(e.touches[0].clientX)}}
-        onTouchEnd={e=>{clearTimeout(e.currentTarget._holdTimer);const dx=e.changedTouches[0].clientX-swipeStartX;if(Math.abs(dx)>50)setReplyTo(m)}}
-        onMouseDown={e=>{e.currentTarget._holdTimer=setTimeout(()=>{vibe(20);setShowReactions(m.id)},400)}}
-        onMouseUp={e=>clearTimeout(e.currentTarget._holdTimer)}
+        onTouchStart={e=>{e.currentTarget._holdTimer=setTimeout(()=>{vibe(20);setShowReactions(m.id)},500);e.currentTarget._startX=e.touches[0].clientX;e.currentTarget._startY=e.touches[0].clientY}}
+        onTouchEnd={e=>{clearTimeout(e.currentTarget._holdTimer);const dx=e.changedTouches[0].clientX-e.currentTarget._startX;const dy=e.changedTouches[0].clientY-e.currentTarget._startY;if(Math.abs(dx)>40)setReplyTo(m);if(Math.abs(dy)>10)clearTimeout(e.currentTarget._holdTimer)}}
+        onTouchMove={e=>{clearTimeout(e.currentTarget._holdTimer)}}
       >
         {!isMe&&!sameUser&&<div style={{fontSize:11,color:'#555',marginBottom:3,marginLeft:4,fontWeight:600}}>{m.sender?.username}</div>}
         {m.reply_to_id&&m.reply_preview&&<div style={{background:'rgba(255,255,255,.06)',borderLeft:`3px solid ${accent}`,borderRadius:8,padding:'4px 10px',marginBottom:3,fontSize:11,color:'#555',maxWidth:220}}>↩ {m.reply_preview}</div>}
